@@ -6,11 +6,15 @@
 import os
 import argparse
 import numpy as np
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent.parent))
 # torch
 import torch
 from ema_pytorch import EMA
 from einops import rearrange
 import cv2
+from tqdm import tqdm, trange
 # utils
 from utils.utils import set_seed, count_param, print_peak_memory
 # model
@@ -130,7 +134,7 @@ def adjust_driving_video_to_src_image(source_image, driving_video, fa, nm_res, n
     adjusted_driving_video = []
     adjusted_driving_video_hd = []
     
-    for frame in driving_video:
+    for frame in tqdm(driving_video, total=len(driving_video)):
         frame_ld = resize(frame, (nm_res, nm_res))
         frame_hd = resize(frame, (nmd_res, nmd_res))
         zoomed=cv2.warpAffine(frame_ld, cv2.getAffineTransform(dst_point[:3], src_point[:3]), (nm_res, nm_res))
