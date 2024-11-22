@@ -290,78 +290,83 @@ def visualize_mm(args, name, batch_data, infer_model, nSample, local_image_dir, 
             frame = cv2.resize(facevid2vid_results[frame_id].asnumpy(),(512,512)) / 255
             facevid2vid.append(torch.from_numpy(frame * 2 - 1).permute(2,0,1))
         cond = torch.stack(facevid2vid)[:nSample].float().to(args.device)
-        pre_noise=[]
-        for i in range(0, nSample, vae_bs):
-            pre_noise.append(infer_model.get_first_stage_encoding(infer_model.encode_first_stage(cond[i:i+vae_bs])))
-        pre_noise = torch.cat(pre_noise, dim=0)
-        pre_noise = infer_model.q_sample(x_start = pre_noise, t = torch.tensor([999]).to(pre_noise.device))
+        # pre_noise=[]
+        # for i in range(0, nSample, vae_bs):
+        #     pre_noise.append(infer_model.get_first_stage_encoding(infer_model.encode_first_stage(cond[i:i+vae_bs])))
+        # pre_noise = torch.cat(pre_noise, dim=0)
+        # pre_noise = infer_model.q_sample(x_start = pre_noise, t = torch.tensor([999]).to(pre_noise.device))
     else:
         cond = batch_data['sources'][:nSample].reshape([-1, ch, h, w])
-        pre_noise=[]
-        for i in range(0, nSample, vae_bs):
-            pre_noise.append(infer_model.get_first_stage_encoding(infer_model.encode_first_stage(cond[i:i+vae_bs])))
-        pre_noise = torch.cat(pre_noise, dim=0)
-        pre_noise = infer_model.q_sample(x_start = pre_noise, t = torch.tensor([999]).to(pre_noise.device))
+        # pre_noise=[]
+        # for i in range(0, nSample, vae_bs):
+        #     pre_noise.append(infer_model.get_first_stage_encoding(infer_model.encode_first_stage(cond[i:i+vae_bs])))
+        # pre_noise = torch.cat(pre_noise, dim=0)
+        # pre_noise = infer_model.q_sample(x_start = pre_noise, t = torch.tensor([999]).to(pre_noise.device))
 
-    text = ["" for _ in range(nSample)]
+    gene_img_list = []
+    for i in tqdm(range(nSample), total=nSample):
+        gene_img_part = inference_one(args, i, infer_model, cond, batch_data, num_mix)
+        gene_img_list.append(gene_img_part)
+
+    # text = ["" for _ in range(nSample)]
     
-    all_c_cat = get_cond_control(args, batch_data, args.control_type, args.device, start=0, end=nSample, model=infer_model, train=False)
-    cond_img_cat = [all_c_cat[0]]
-    pose_cond_list = [rearrange(all_c_cat[1], "b f c h w -> (b f) c h w")]
-    local_pose_cond_list = [all_c_cat[2]]
+    # all_c_cat = get_cond_control(args, batch_data, args.control_type, args.device, start=0, end=nSample, model=infer_model, train=False)
+    # cond_img_cat = [all_c_cat[0]]
+    # pose_cond_list = [rearrange(all_c_cat[1], "b f c h w -> (b f) c h w")]
+    # local_pose_cond_list = [all_c_cat[2]]
 
-    c_cross = infer_model.get_learned_conditioning(text)[:nSample]
-    uc_cross = infer_model.get_unconditional_conditioning(nSample)
+    # c_cross = infer_model.get_learned_conditioning(text)[:nSample]
+    # uc_cross = infer_model.get_unconditional_conditioning(nSample)
 
-    c = {"c_crossattn": [c_cross], "image_control": cond_img_cat}
-    if "appearance_pose" in args.control_type:
-        c['c_concat'] = pose_cond_list
-    if "appearance_pose_local" in args.control_type:
-        c["local_c_concat"] = local_pose_cond_list
+    # c = {"c_crossattn": [c_cross], "image_control": cond_img_cat}
+    # if "appearance_pose" in args.control_type:
+    #     c['c_concat'] = pose_cond_list
+    # if "appearance_pose_local" in args.control_type:
+    #     c["local_c_concat"] = local_pose_cond_list
     
-    if len(all_c_cat) > 3 and len(all_c_cat[3]) > 0:
-        c['more_image_control'] = all_c_cat[3]
+    # if len(all_c_cat) > 3 and len(all_c_cat[3]) > 0:
+    #     c['more_image_control'] = all_c_cat[3]
 
-    if args.control_mode == "controlnet_important":
-        uc = {"c_crossattn": [uc_cross]}
-    else:
-        uc = {"c_crossattn": [uc_cross], "image_control":cond_img_cat}
+    # if args.control_mode == "controlnet_important":
+    #     uc = {"c_crossattn": [uc_cross]}
+    # else:
+    #     uc = {"c_crossattn": [uc_cross], "image_control":cond_img_cat}
 
-    if "appearance_pose" in args.control_type:
-        uc['c_concat'] = [torch.zeros_like(pose_cond_list[0])]
+    # if "appearance_pose" in args.control_type:
+    #     uc['c_concat'] = [torch.zeros_like(pose_cond_list[0])]
 
-    if "appearance_pose_local" in args.control_type:
-        uc["local_c_concat"] = [torch.zeros_like(local_pose_cond_list[0])]
+    # if "appearance_pose_local" in args.control_type:
+    #     uc["local_c_concat"] = [torch.zeros_like(local_pose_cond_list[0])]
 
-    if len(all_c_cat) > 3 and len(all_c_cat[3]) > 0:
-        uc['more_image_control'] = all_c_cat[3]
+    # if len(all_c_cat) > 3 and len(all_c_cat[3]) > 0:
+    #     uc['more_image_control'] = all_c_cat[3]
 
-    if args.wonoise:
-        c['wonoise'] = True
-        uc['wonoise'] = True
-    else:
-        c['wonoise'] = False
-        uc['wonoise'] = False
+    # if args.wonoise:
+    #     c['wonoise'] = True
+    #     uc['wonoise'] = True
+    # else:
+    #     c['wonoise'] = False
+    #     uc['wonoise'] = False
         
-    noise = pre_noise.to(c_cross.device)
+    # noise = pre_noise.to(c_cross.device)
 
-    with torch.cuda.amp.autocast(enabled=args.use_fp16, dtype=FP16_DTYPE):
-        infer_model.to(args.device)
-        infer_model.eval()
+    # with torch.cuda.amp.autocast(enabled=args.use_fp16, dtype=FP16_DTYPE):
+    #     infer_model.to(args.device)
+    #     infer_model.eval()
 
-        gene_img, _ = infer_model.sample_log(cond=c,
-                                    batch_size=args.num_drivings, ddim=True,
-                                    ddim_steps=args.ddim_steps, eta=args.eta,
-                                    unconditional_guidance_scale=uc_scale,
-                                    unconditional_conditioning=uc,
-                                    inpaint=None,
-                                    x_T=noise,
-                                    num_overlap=num_mix,
-                                    )
+    #     gene_img, _ = infer_model.sample_log(cond=c,
+    #                                 batch_size=args.num_drivings, ddim=True,
+    #                                 ddim_steps=args.ddim_steps, eta=args.eta,
+    #                                 unconditional_guidance_scale=uc_scale,
+    #                                 unconditional_conditioning=uc,
+    #                                 inpaint=None,
+    #                                 x_T=noise,
+    #                                 num_overlap=num_mix,
+    #                                 )
 
-        for i in range(0, nSample, vae_bs):
-            gene_img_part = infer_model.decode_first_stage( gene_img[i:i+vae_bs] )
-            gene_img_list.append(gene_img_part.float().clamp(-1, 1).cpu())
+    #     for i in range(0, nSample, vae_bs):
+    #         gene_img_part = infer_model.decode_first_stage( gene_img[i:i+vae_bs] )
+    #         gene_img_list.append(gene_img_part.float().clamp(-1, 1).cpu())
 
     _, c, h, w = gene_img_list[0].shape  
 
@@ -381,6 +386,7 @@ def visualize_mm(args, name, batch_data, infer_model, nSample, local_image_dir, 
     output_img = img_as_ubyte(output_img)
     imageio.mimsave(output_path, output_img[:,:,:512], fps=batch_data['fps'], quality=10, pixelformat='yuv420p', codec='libx264')
 
+@torch.no_grad()
 def main(args):
     
     # ******************************
@@ -439,7 +445,76 @@ def main(args):
             infer_batch_data['video_name'] = os.path.basename(driving_video)
             infer_batch_data['source_name'] = args.source_image
             nSample = infer_batch_data['sources'].shape[0]
+            print(f'finish {nSample} data preprocssing for {os.path.basename(driving_video)}')
             visualize_mm(args, "inference", infer_batch_data, infer_model, nSample=nSample, local_image_dir=args.output_dir, num_mix=args.num_mix)
+
+def inference_one(args, index, infer_model, cond, batch_data, num_mix):
+    cond = cond[index:index+1]
+    batch_data = {k: v[index:index+1] for k, v in batch_data.items() if isinstance(v, torch.Tensor)}
+
+    pre_noise = infer_model.get_first_stage_encoding(infer_model.encode_first_stage(cond))
+    pre_noise = infer_model.q_sample(x_start = pre_noise, t = torch.tensor([999]).to(pre_noise.device))
+
+    text = [""]
+
+    all_c_cat = get_cond_control(args, batch_data, args.control_type, args.device, start=0, end=1, model=infer_model, train=False)
+    cond_img_cat = [all_c_cat[0]]
+    pose_cond_list = [rearrange(all_c_cat[1], "b f c h w -> (b f) c h w")]
+    local_pose_cond_list = [all_c_cat[2]]
+
+    c_cross = infer_model.get_learned_conditioning(text)[:1]
+    uc_cross = infer_model.get_unconditional_conditioning(1)
+
+    c = {"c_crossattn": [c_cross], "image_control": cond_img_cat}
+    if "appearance_pose" in args.control_type:
+        c['c_concat'] = pose_cond_list
+    if "appearance_pose_local" in args.control_type:
+        c["local_c_concat"] = local_pose_cond_list
+    
+    if len(all_c_cat) > 3 and len(all_c_cat[3]) > 0:
+        c['more_image_control'] = all_c_cat[3]
+
+    if args.control_mode == "controlnet_important":
+        uc = {"c_crossattn": [uc_cross]}
+    else:
+        uc = {"c_crossattn": [uc_cross], "image_control":cond_img_cat}
+
+    if "appearance_pose" in args.control_type:
+        uc['c_concat'] = [torch.zeros_like(pose_cond_list[0])]
+
+    if "appearance_pose_local" in args.control_type:
+        uc["local_c_concat"] = [torch.zeros_like(local_pose_cond_list[0])]
+
+    if len(all_c_cat) > 3 and len(all_c_cat[3]) > 0:
+        uc['more_image_control'] = all_c_cat[3]
+
+    if args.wonoise:
+        c['wonoise'] = True
+        uc['wonoise'] = True
+    else:
+        c['wonoise'] = False
+        uc['wonoise'] = False
+
+    noise = pre_noise.to(c_cross.device)
+
+    with torch.cuda.amp.autocast(enabled=args.use_fp16, dtype=FP16_DTYPE):
+        infer_model.to(args.device)
+        infer_model.eval()
+
+        gene_img, _ = infer_model.sample_log(cond=c,
+                                    batch_size=args.num_drivings, ddim=True,
+                                    ddim_steps=args.ddim_steps, eta=args.eta,
+                                    unconditional_guidance_scale=args.uc_scale,
+                                    unconditional_conditioning=uc,
+                                    inpaint=None,
+                                    x_T=noise,
+                                    num_overlap=num_mix,
+                                    )
+
+        gene_img_part = infer_model.decode_first_stage(gene_img)
+        gene_img_part = gene_img_part.float().clamp(-1, 1).cpu()
+
+    return gene_img_part
 
 
 if __name__ == "__main__":
