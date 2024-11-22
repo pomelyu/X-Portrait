@@ -303,9 +303,13 @@ def visualize_mm(args, name, batch_data, infer_model, nSample, local_image_dir, 
         # pre_noise = torch.cat(pre_noise, dim=0)
         # pre_noise = infer_model.q_sample(x_start = pre_noise, t = torch.tensor([999]).to(pre_noise.device))
 
+    save_image_folder = Path(output_path).with_suffix("")
+    save_image_folder.mkdir(exist_ok=True, parents=True)
     gene_img_list = []
     for i in tqdm(range(nSample), total=nSample):
         gene_img_part = inference_one(args, i, infer_model, cond, batch_data, num_mix)
+        gene_img = np.moveaxis(gene_img_part[0].cpu().numpy() * 127.5 + 127.5, 0, -1).astype(np.uint8)
+        imageio.imsave(save_image_folder / f"{i:0>6d}.jpg", gene_img)
         gene_img_list.append(gene_img_part)
 
     # text = ["" for _ in range(nSample)]
